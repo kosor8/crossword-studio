@@ -5,7 +5,6 @@ import { PuzzleProvider, usePuzzle } from '@/hooks/usePuzzle';
 import { WordInput } from '@/components/puzzle/WordInput';
 import { GridRenderer } from '@/components/puzzle/GridRenderer';
 import { VariantSwitcher } from '@/components/puzzle/VariantSwitcher';
-import { PhotoUpload } from '@/components/puzzle/PhotoUpload';
 import { generateVariants } from '@/lib/algorithm/placer';
 import { Play, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -37,6 +36,7 @@ function StudioContent() {
           gridSize: state.gridSize,
           maxAttempts: 50,
           seed: Date.now(),
+          photoOrientation: state.photo?.orientation,
         }, 3);
         
         dispatch({ type: 'SET_VARIANTS', variants });
@@ -62,16 +62,6 @@ function StudioContent() {
               Crossword Studio
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Title Input */}
-            <input
-              type="text"
-              value={state.title}
-              onChange={(e) => dispatch({ type: 'SET_TITLE', title: e.target.value })}
-              className="text-right bg-transparent border-none focus:outline-none focus:ring-0 text-slate-600 font-medium w-48 hover:text-slate-900 transition-colors cursor-text"
-              placeholder="Bulmaca Başlığı"
-            />
-          </div>
         </div>
       </header>
 
@@ -82,7 +72,6 @@ function StudioContent() {
           {/* Left Column: Inputs */}
           <div className="lg:col-span-5 space-y-6">
             <WordInput />
-            <PhotoUpload />
           </div>
 
           {/* Right Column: Preview & Generation */}

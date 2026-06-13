@@ -2,28 +2,23 @@
 
 import { useState } from 'react';
 import { usePuzzle } from '@/hooks/usePuzzle';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { PdfExporter } from '@/components/export/PdfExporter';
+import { calculateHole } from '@/lib/algorithm/placer';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: ClassValue[]) {
+export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function GridRenderer() {
   const { state } = usePuzzle();
-  const [showSolution, setShowSolution] = useState(true);
 
   if (!state.variants || state.variants.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[400px] text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-400">
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-semibold text-slate-800">Henüz Bulmaca Yok</h3>
-        <p className="text-slate-500 mt-1 max-w-sm">Kelimelerinizi girin ve "Bulmaca Üret" butonuna tıklayarak oluşturun.</p>
+      <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-12 text-slate-400 min-h-[400px]">
+        <p>Bulmaca oluşturduğunuzda önizleme burada görünecektir.</p>
       </div>
     );
   }
@@ -32,21 +27,41 @@ export function GridRenderer() {
   const currentVariant = variants[activeVariantIndex];
   const grid = currentVariant.grid;
 
+  let holeMinRow = -1, holeMinCol = -1;
+  let holeW = 0, holeH = 0;
+  
+  if (state.photo) {
+    const hole = calculateHole(state.gridSize, state.photo.orientation);
+    if (hole) {
+      holeW = hole.holeW;
+      holeH = hole.holeH;
+      // Adjust hole coordinates based on how much the grid was trimmed
+      const offsetR = currentVariant.trimOffset?.minR || 0;
+      const offsetC = currentVariant.trimOffset?.minC || 0;
+      holeMinRow = hole.holeMinRow - offsetR;
+      holeMinCol = hole.holeMinCol - offsetC;
+    }
+  }
+
+  // Split clues into across and down
+  const acrossClues = currentVariant.placedWords
+    .filter((w) => w.direction === 'across')
+    .sort((a, b) => a.number - b.number);
+    
+  const downClues = currentVariant.placedWords
+    .filter((w) => w.direction === 'down')
+    .sort((a, b) => a.number - b.number);
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
-        <h3 className="font-medium text-slate-800">Bulmaca Önizlemesi</h3>
-        <button
-          onClick={() => setShowSolution(!showSolution)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-        >
-          {showSolution ? <EyeOff size={16} /> : <Eye size={16} />}
-          <span>{showSolution ? 'Çözümü Gizle' : 'Çözümü Göster'}</span>
-        </button>
+    <div className="flex flex-col gap-4">
+      {/* Action Bar */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <h3 className="font-semibold text-slate-800">A4 Önizleme</h3>
+        <PdfExporter state={state} />
       </div>
 
       {currentVariant.unplacedWords.length > 0 && (
-        <div className="bg-amber-50 border-b border-amber-100 p-3 px-4 flex items-start gap-3 text-amber-800 text-sm">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-amber-800 text-sm shadow-sm">
           <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">Bazı kelimeler sığmadı:</p>
@@ -57,35 +72,130 @@ export function GridRenderer() {
         </div>
       )}
 
-      <div className="p-6 flex items-center justify-center bg-[#f8fafc] overflow-auto min-h-[400px]">
+      {/* A4 Paper Mockup Container */}
+      <div className="w-full overflow-auto bg-slate-100 p-4 rounded-xl flex justify-center">
         <div 
-          className="grid gap-[1px] bg-slate-800 border-2 border-slate-800 p-[1px]"
+          className="bg-white shadow-xl flex flex-col p-8 sm:p-12 relative"
           style={{ 
-            gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))` 
+            width: '210mm', 
+            minHeight: '297mm',
+            // Simple transform to fit on smaller screens
+            transformOrigin: 'top center',
+            maxWidth: '100%',
           }}
         >
-          {grid.map((row, rowIndex) => (
-            row.map((cell, colIndex) => (
-              <div
-                key={`${rowIndex}-${colIndex}`}
-                className={cn(
-                  "relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-white transition-all",
-                  cell.isBlack && "bg-slate-800"
-                )}
-              >
-                {!cell.isBlack && cell.number && (
-                  <span className="absolute top-0.5 left-1 text-[10px] leading-none font-medium text-slate-500">
-                    {cell.number}
-                  </span>
-                )}
-                {!cell.isBlack && showSolution && cell.letter && (
-                  <span className="text-base sm:text-lg md:text-xl font-bold text-slate-800 font-sans uppercase">
-                    {cell.letter}
-                  </span>
-                )}
-              </div>
-            ))
-          ))}
+          {/* Header */}
+          <div className="mb-10 text-center">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight uppercase">
+              {state.title || 'Bulmaca'}
+            </h1>
+            <div className="w-24 h-1 bg-slate-800 mx-auto mt-4"></div>
+          </div>
+
+          {/* Grid Area */}
+          <div className="flex justify-center mb-12">
+            <div 
+              className="grid relative"
+              style={{ 
+                gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))` 
+              }}
+            >
+              {state.photo && (
+                <div 
+                  className="absolute z-10 p-0.5"
+                  style={{
+                    top: `${(holeMinRow / grid.length) * 100}%`,
+                    left: `${(holeMinCol / grid[0].length) * 100}%`,
+                    width: `${(holeW / grid[0].length) * 100}%`,
+                    height: `${(holeH / grid.length) * 100}%`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={state.photo.url} 
+                    alt="Puzzle Center" 
+                    className="w-full h-full object-cover shadow-sm border border-slate-300"
+                  />
+                </div>
+              )}
+
+              {grid.map((row, rowIndex) => (
+                row.map((cell, colIndex) => {
+                  const isTopWhite = rowIndex === 0 || grid[rowIndex - 1][colIndex].isBlack;
+                  const isLeftWhite = colIndex === 0 || grid[rowIndex][colIndex - 1].isBlack;
+
+                  return (
+                    <div
+                      key={`${rowIndex}-${colIndex}`}
+                      className={cn(
+                        "relative flex items-center justify-center w-full aspect-square transition-all box-border",
+                        // If black, blend into background (no borders). If white, show borders.
+                        cell.isBlack ? "bg-transparent border-transparent" : "bg-white border-b border-r border-slate-800",
+                        // Add top and left borders conditionally to complete the white squares
+                        !cell.isBlack && isTopWhite && "border-t",
+                        !cell.isBlack && isLeftWhite && "border-l",
+                        // Negative margins to prevent double borders
+                        !cell.isBlack && "-mt-[1px] -ml-[1px]"
+                      )}
+                    >
+                      {!cell.isBlack && cell.number && (
+                        <span 
+                          className={cn(
+                            "absolute top-0.5 left-1 text-[8px] sm:text-[10px] leading-none font-bold",
+                            // Color logic: blue for across, red for down, purple for both
+                            cell.numberDirections?.includes('across') && cell.numberDirections?.includes('down') ? "text-purple-600" :
+                            cell.numberDirections?.includes('across') ? "text-blue-600" :
+                            cell.numberDirections?.includes('down') ? "text-red-600" : "text-slate-500"
+                          )}
+                        >
+                          {cell.number}
+                        </span>
+                      )}
+                      {!cell.isBlack && cell.letter && (
+                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 font-sans uppercase">
+                          {cell.letter}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              ))}
+            </div>
+          </div>
+
+          {/* Clues Area */}
+          <div className="grid grid-cols-2 gap-8 text-sm md:text-base mt-auto">
+            {/* Across Clues */}
+            <div>
+              <h4 className="font-bold text-blue-700 uppercase tracking-wider mb-4 border-b-2 border-blue-100 pb-2 flex items-center gap-2">
+                Soldan Sağa
+              </h4>
+              <ul className="space-y-2">
+                {acrossClues.map(clue => (
+                  <li key={clue.id} className="flex gap-2">
+                    <span className="font-bold text-blue-600 min-w-[1.5rem]">{clue.number}.</span>
+                    <span className="text-slate-700 leading-snug">{clue.clue}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Down Clues */}
+            <div>
+              <h4 className="font-bold text-red-700 uppercase tracking-wider mb-4 border-b-2 border-red-100 pb-2 flex items-center gap-2">
+                Yukarıdan Aşağı
+              </h4>
+              <ul className="space-y-2">
+                {downClues.map(clue => (
+                  <li key={clue.id} className="flex gap-2">
+                    <span className="font-bold text-red-600 min-w-[1.5rem]">{clue.number}.</span>
+                    <span className="text-slate-700 leading-snug">{clue.clue}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          
         </div>
       </div>
     </div>

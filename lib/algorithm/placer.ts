@@ -5,12 +5,31 @@ export interface PlacerConfig {
   gridSize: number;
   maxAttempts: number;
   seed?: number;
+  photoOrientation?: 'horizontal' | 'vertical';
 }
 
 interface PlacedPosition {
   row: number;
   col: number;
   direction: Direction;
+}
+
+export function calculateHole(gridSize: number, orientation?: 'horizontal' | 'vertical') {
+  if (!orientation) return null;
+  const N = gridSize;
+  // Make hole smaller to allow words to fit around it (3x2 or 2x3 for N=15)
+  const baseW = Math.max(2, Math.floor(N * 0.25));
+  const baseH = Math.max(2, Math.floor(N * 0.15));
+  
+  const holeW = orientation === 'horizontal' ? baseW : baseH;
+  const holeH = orientation === 'horizontal' ? baseH : baseW;
+  
+  const holeMinRow = Math.floor((N - holeH) / 2);
+  const holeMaxRow = holeMinRow + holeH - 1;
+  const holeMinCol = Math.floor((N - holeW) / 2);
+  const holeMaxCol = holeMinCol + holeW - 1;
+
+  return { holeMinRow, holeMaxRow, holeMinCol, holeMaxCol, holeW, holeH };
 }
 
 /**
@@ -94,12 +113,56 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
   const finalizedGrid = finalizeGrid(grid, placed);
   const numberedPlaced = numberWords(placed, finalizedGrid);
 
+  // Trim the grid to remove empty edges
+  let minR = config.gridSize, maxR = 0;
+  let minC = config.gridSize, maxC = 0;
+  let hasLetters = false;
+
+  for (let r = 0; r < config.gridSize; r++) {
+    for (let c = 0; c < config.gridSize; c++) {
+      if (!finalizedGrid[r][c].isBlack) {
+        hasLetters = true;
+        minR = Math.min(minR, r);
+        maxR = Math.max(maxR, r);
+        minC = Math.min(minC, c);
+        maxC = Math.max(maxC, c);
+      }
+    }
+  }
+
+  // Also ensure the hole is included in the bounding box if photo is present
+  const hole = calculateHole(config.gridSize, config.photoOrientation);
+  if (hole) {
+    minR = Math.min(minR, hole.holeMinRow);
+    maxR = Math.max(maxR, hole.holeMaxRow);
+    minC = Math.min(minC, hole.holeMinCol);
+    maxC = Math.max(maxC, hole.holeMaxCol);
+  }
+
+  // Add a 1-cell padding around the trimmed grid for aesthetics if possible
+  minR = Math.max(0, minR - 1);
+  maxR = Math.min(config.gridSize - 1, maxR + 1);
+  minC = Math.max(0, minC - 1);
+  maxC = Math.min(config.gridSize - 1, maxC + 1);
+
+  let trimmedGrid = finalizedGrid;
+  if (hasLetters || hole) {
+    trimmedGrid = finalizedGrid.slice(minR, maxR + 1).map(row => row.slice(minC, maxC + 1));
+    // Update word coordinates
+    numberedPlaced.forEach(w => {
+      w.row -= minR;
+      w.col -= minC;
+    });
+  }
+
   return {
     id: crypto.randomUUID(),
-    grid: finalizedGrid,
+    grid: trimmedGrid,
     placedWords: numberedPlaced,
     unplacedWords: unplaced,
     score: calculateScore(numberedPlaced, unplaced, finalizedGrid),
+    // We attach the offset so UI knows the hole shifted
+    trimOffset: { minR, minC },
   };
 }
 
@@ -137,6 +200,16 @@ function findBestPosition(
 
   if (isGridEmpty) {
     const center = Math.floor(config.gridSize / 2);
+    
+    if (config.photoOrientation) {
+      // Place first word near the top edge, centered horizontally
+      return {
+        row: 1,
+        col: Math.max(1, center - Math.floor(word.answer.length / 2)),
+        direction: 'across',
+      };
+    }
+    
     return {
       row: center,
       col: center - Math.floor(word.answer.length / 2),
@@ -177,9 +250,20 @@ function canPlace(
     if (startCol < 0 || startCol >= config.gridSize) return false;
   }
 
+  // Calculate exclusion zone if photo is present
+  const hole = calculateHole(config.gridSize, config.photoOrientation);
+
   for (let i = 0; i < length; i++) {
     const r = direction === 'across' ? startRow : startRow + i;
     const c = direction === 'across' ? startCol + i : startCol;
+    
+    // Check if within hole
+    if (hole) {
+      if (r >= hole.holeMinRow && r <= hole.holeMaxRow && c >= hole.holeMinCol && c <= hole.holeMaxCol) {
+        return false;
+      }
+    }
+
     const cell = grid[r][c];
 
     // Conflict check
@@ -244,10 +328,15 @@ function numberWords(placed: PlacedWord[], grid: Grid): PlacedWord[] {
     const key = `${word.row},${word.col}`;
     if (assignedNumbers.has(key)) {
       word.number = assignedNumbers.get(key)!;
+      const cell = grid[word.row][word.col];
+      if (cell.numberDirections && !cell.numberDirections.includes(word.direction)) {
+        cell.numberDirections.push(word.direction);
+      }
     } else {
       word.number = counter;
       assignedNumbers.set(key, counter);
       grid[word.row][word.col].number = counter;
+      grid[word.row][word.col].numberDirections = [word.direction];
       counter++;
     }
   }

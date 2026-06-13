@@ -17,6 +17,7 @@ export interface GridCell {
   letter: string | null;
   isBlack: boolean;
   number?: number;
+  numberDirections?: Direction[]; // Indicates which directions start at this numbered cell
 }
 
 export type Grid = GridCell[][];
@@ -27,6 +28,7 @@ export interface PuzzleVariant {
   placedWords: PlacedWord[];
   unplacedWords: Word[];   // Words that didn't fit
   score: number;           // Quality of placement
+  trimOffset?: { minR: number; minC: number };
 }
 
 export interface Puzzle {

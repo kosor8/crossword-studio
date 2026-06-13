@@ -16,9 +16,9 @@ export function WordInput() {
   };
 
   const handleChange = (id: string, field: 'answer' | 'clue', value: string) => {
-    // Only allow uppercase letters and numbers in answer
+    // Sadece büyük harf ve rakamlara izin ver (Türkçe karakterler dahil)
     const sanitizedValue = field === 'answer' 
-      ? value.toUpperCase().replace(/[^A-ZÇĞIİÖŞÜ0-9]/g, '') 
+      ? value.toLocaleUpperCase('tr-TR').replace(/[^A-ZÇĞIİÖŞÜ0-9]/g, '') 
       : value;
     
     dispatch({ type: 'UPDATE_WORD', id, field, value: sanitizedValue });
@@ -26,6 +26,18 @@ export function WordInput() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div className="mb-6 pb-6 border-b border-slate-100">
+        <label htmlFor="puzzle-title" className="block text-sm font-medium text-slate-700 mb-2">Bulmaca Başlığı</label>
+        <input
+          id="puzzle-title"
+          type="text"
+          value={state.title}
+          onChange={(e) => dispatch({ type: 'SET_TITLE', title: e.target.value })}
+          className="w-full text-xl font-semibold bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+          placeholder="Örn: Hafta Sonu Bulmacası"
+        />
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-slate-800">Kelimeler</h2>

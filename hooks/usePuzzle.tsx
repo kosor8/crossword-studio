@@ -3,7 +3,7 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { Word, PuzzleVariant, Puzzle } from '@/types/puzzle';
 
-type PuzzleState = Puzzle;
+export type PuzzleState = Puzzle;
 
 type PuzzleAction =
   | { type: 'ADD_WORD' }
@@ -21,7 +21,7 @@ const initialState: PuzzleState = {
     { id: '1', answer: '', clue: '' },
     { id: '2', answer: '', clue: '' },
   ],
-  gridSize: 15,
+  gridSize: 20,
   variants: [],
   activeVariantIndex: 0,
 };
