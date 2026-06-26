@@ -2,9 +2,11 @@ import { Word, PlacedWord, Grid, PuzzleVariant, GridCell, Direction } from '../.
 import { calculateScore } from './scorer';
 
 export interface PlacerConfig {
-  gridSize: number;
+  gridCols: number;
+  gridRows: number;
   maxAttempts: number;
   seed?: number;
+  hasPhoto: boolean;
   photoOrientation?: 'horizontal' | 'vertical';
 }
 
@@ -14,22 +16,18 @@ interface PlacedPosition {
   direction: Direction;
 }
 
-export function calculateHole(gridSize: number, orientation?: 'horizontal' | 'vertical') {
-  if (!orientation) return null;
-  const N = gridSize;
-  // Make hole smaller to allow words to fit around it (3x2 or 2x3 for N=15)
-  const baseW = Math.max(2, Math.floor(N * 0.25));
-  const baseH = Math.max(2, Math.floor(N * 0.15));
+export function calculateHole(config: PlacerConfig) {
+  if (!config.hasPhoto) return null;
+  // Rectangular hole, e.g. 8x6 or 6x8 depending on orientation
+  const baseW = config.photoOrientation === 'vertical' ? 6 : 8;
+  const baseH = config.photoOrientation === 'vertical' ? 8 : 6;
   
-  const holeW = orientation === 'horizontal' ? baseW : baseH;
-  const holeH = orientation === 'horizontal' ? baseH : baseW;
-  
-  const holeMinRow = Math.floor((N - holeH) / 2);
-  const holeMaxRow = holeMinRow + holeH - 1;
-  const holeMinCol = Math.floor((N - holeW) / 2);
-  const holeMaxCol = holeMinCol + holeW - 1;
+  const holeMinRow = Math.floor((config.gridRows - baseH) / 2);
+  const holeMaxRow = holeMinRow + baseH - 1;
+  const holeMinCol = Math.floor((config.gridCols - baseW) / 2);
+  const holeMaxCol = holeMinCol + baseW - 1;
 
-  return { holeMinRow, holeMaxRow, holeMinCol, holeMaxCol, holeW, holeH };
+  return { holeMinRow, holeMaxRow, holeMinCol, holeMaxCol, holeW: baseW, holeH: baseH };
 }
 
 /**
@@ -43,9 +41,9 @@ function random(seed: number) {
 /**
  * Creates an empty grid of the given size.
  */
-function createEmptyGrid(gridSize: number): Grid {
-  return Array.from({ length: gridSize }, () =>
-    Array.from({ length: gridSize }, () => ({
+function createEmptyGrid(cols: number, rows: number): Grid {
+  return Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({
       letter: null,
       isBlack: true,
     }))
@@ -74,7 +72,7 @@ export function generateVariants(
 }
 
 function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
-  const grid = createEmptyGrid(config.gridSize);
+  const grid = createEmptyGrid(config.gridCols, config.gridRows);
   
   // Create a copy of words and sort them descending by length as a heuristic
   let sorted = [...words].sort((a, b) => b.answer.length - a.answer.length);
@@ -95,7 +93,7 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
   const unplaced: Word[] = [];
 
   for (const word of sorted) {
-    if (word.answer.length > config.gridSize) {
+    if (word.answer.length > Math.max(config.gridCols, config.gridRows)) {
       unplaced.push(word);
       continue;
     }
@@ -113,56 +111,13 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
   const finalizedGrid = finalizeGrid(grid, placed);
   const numberedPlaced = numberWords(placed, finalizedGrid);
 
-  // Trim the grid to remove empty edges
-  let minR = config.gridSize, maxR = 0;
-  let minC = config.gridSize, maxC = 0;
-  let hasLetters = false;
-
-  for (let r = 0; r < config.gridSize; r++) {
-    for (let c = 0; c < config.gridSize; c++) {
-      if (!finalizedGrid[r][c].isBlack) {
-        hasLetters = true;
-        minR = Math.min(minR, r);
-        maxR = Math.max(maxR, r);
-        minC = Math.min(minC, c);
-        maxC = Math.max(maxC, c);
-      }
-    }
-  }
-
-  // Also ensure the hole is included in the bounding box if photo is present
-  const hole = calculateHole(config.gridSize, config.photoOrientation);
-  if (hole) {
-    minR = Math.min(minR, hole.holeMinRow);
-    maxR = Math.max(maxR, hole.holeMaxRow);
-    minC = Math.min(minC, hole.holeMinCol);
-    maxC = Math.max(maxC, hole.holeMaxCol);
-  }
-
-  // Add a 1-cell padding around the trimmed grid for aesthetics if possible
-  minR = Math.max(0, minR - 1);
-  maxR = Math.min(config.gridSize - 1, maxR + 1);
-  minC = Math.max(0, minC - 1);
-  maxC = Math.min(config.gridSize - 1, maxC + 1);
-
-  let trimmedGrid = finalizedGrid;
-  if (hasLetters || hole) {
-    trimmedGrid = finalizedGrid.slice(minR, maxR + 1).map(row => row.slice(minC, maxC + 1));
-    // Update word coordinates
-    numberedPlaced.forEach(w => {
-      w.row -= minR;
-      w.col -= minC;
-    });
-  }
-
   return {
     id: crypto.randomUUID(),
-    grid: trimmedGrid,
+    grid: finalizedGrid,
     placedWords: numberedPlaced,
     unplacedWords: unplaced,
     score: calculateScore(numberedPlaced, unplaced, finalizedGrid),
-    // We attach the offset so UI knows the hole shifted
-    trimOffset: { minR, minC },
+    trimOffset: { minR: 0, minC: 0 },
   };
 }
 
@@ -176,8 +131,8 @@ function findBestPosition(
   let isGridEmpty = true;
 
   // Search existing letters for intersections
-  for (let row = 0; row < config.gridSize; row++) {
-    for (let col = 0; col < config.gridSize; col++) {
+  for (let row = 0; row < config.gridRows; row++) {
+    for (let col = 0; col < config.gridCols; col++) {
       const cell = grid[row][col];
       if (!cell.letter) continue;
       isGridEmpty = false;
@@ -199,20 +154,21 @@ function findBestPosition(
   }
 
   if (isGridEmpty) {
-    const center = Math.floor(config.gridSize / 2);
+    const centerCol = Math.floor(config.gridCols / 2);
+    const centerRow = Math.floor(config.gridRows / 2);
     
     if (config.photoOrientation) {
       // Place first word near the top edge, centered horizontally
       return {
         row: 1,
-        col: Math.max(1, center - Math.floor(word.answer.length / 2)),
+        col: Math.max(1, centerCol - Math.floor(word.answer.length / 2)),
         direction: 'across',
       };
     }
     
     return {
-      row: center,
-      col: center - Math.floor(word.answer.length / 2),
+      row: centerRow,
+      col: centerCol - Math.floor(word.answer.length / 2),
       direction: 'across',
     };
   }
@@ -243,15 +199,15 @@ function canPlace(
 
   // Bounds check
   if (direction === 'across') {
-    if (startCol < 0 || startCol + length > config.gridSize) return false;
-    if (startRow < 0 || startRow >= config.gridSize) return false;
+    if (startCol < 0 || startCol + length > config.gridCols) return false;
+    if (startRow < 0 || startRow >= config.gridRows) return false;
   } else {
-    if (startRow < 0 || startRow + length > config.gridSize) return false;
-    if (startCol < 0 || startCol >= config.gridSize) return false;
+    if (startRow < 0 || startRow + length > config.gridRows) return false;
+    if (startCol < 0 || startCol >= config.gridCols) return false;
   }
 
   // Calculate exclusion zone if photo is present
-  const hole = calculateHole(config.gridSize, config.photoOrientation);
+  const hole = calculateHole(config);
 
   for (let i = 0; i < length; i++) {
     const r = direction === 'across' ? startRow : startRow + i;
@@ -276,11 +232,11 @@ function canPlace(
       if (direction === 'across') {
         // Check top and bottom for this new letter
         if (r > 0 && grid[r - 1][c].letter) return false;
-        if (r < config.gridSize - 1 && grid[r + 1][c].letter) return false;
+        if (r < config.gridRows - 1 && grid[r + 1][c].letter) return false;
       } else {
         // Check left and right for this new letter
         if (c > 0 && grid[r][c - 1].letter) return false;
-        if (c < config.gridSize - 1 && grid[r][c + 1].letter) return false;
+        if (c < config.gridCols - 1 && grid[r][c + 1].letter) return false;
       }
     }
   }
@@ -288,10 +244,10 @@ function canPlace(
   // Bounds check for the word as a whole (no immediately adjacent letters before or after)
   if (direction === 'across') {
     if (startCol > 0 && grid[startRow][startCol - 1].letter) return false;
-    if (startCol + length < config.gridSize && grid[startRow][startCol + length].letter) return false;
+    if (startCol + length < config.gridCols && grid[startRow][startCol + length].letter) return false;
   } else {
     if (startRow > 0 && grid[startRow - 1][startCol].letter) return false;
-    if (startRow + length < config.gridSize && grid[startRow + length][startCol].letter) return false;
+    if (startRow + length < config.gridRows && grid[startRow + length][startCol].letter) return false;
   }
 
   return true;

@@ -12,6 +12,8 @@ type PuzzleAction =
   | { type: 'SET_VARIANTS'; variants: PuzzleVariant[] }
   | { type: 'SET_ACTIVE_VARIANT'; index: number }
   | { type: 'SET_PHOTO'; photo: Puzzle['photo'] }
+  | { type: 'TOGGLE_PHOTO' }
+  | { type: 'SET_HAS_PHOTO'; hasPhoto: boolean }
   | { type: 'SET_TITLE'; title: string }
   | { type: 'LOAD_STATE'; state: PuzzleState };
 
@@ -24,6 +26,7 @@ const initialState: PuzzleState = {
   gridSize: 20,
   variants: [],
   activeVariantIndex: 0,
+  hasPhoto: false,
 };
 
 function puzzleReducer(state: PuzzleState, action: PuzzleAction): PuzzleState {
@@ -60,6 +63,20 @@ function puzzleReducer(state: PuzzleState, action: PuzzleAction): PuzzleState {
       return {
         ...state,
         photo: action.photo,
+      };
+    case 'TOGGLE_PHOTO': {
+      const nextHasPhoto = !state.hasPhoto;
+      return {
+        ...state,
+        hasPhoto: nextHasPhoto,
+        photo: nextHasPhoto && !state.photo ? { orientation: 'horizontal' } : state.photo,
+      };
+    }
+    case 'SET_HAS_PHOTO':
+      return {
+        ...state,
+        hasPhoto: action.hasPhoto,
+        photo: action.hasPhoto && !state.photo ? { orientation: 'horizontal' } : state.photo,
       };
     case 'SET_TITLE':
       return {

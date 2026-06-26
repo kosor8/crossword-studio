@@ -65,17 +65,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderRightWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: '#cbd5e1',
   },
   cellBorderTop: {
     borderTopWidth: 1,
+    borderTopColor: '#cbd5e1',
   },
   cellBorderLeft: {
     borderLeftWidth: 1,
-  },
-  cellMarginAdjust: {
-    marginTop: -1,
-    marginLeft: -1,
+    borderLeftColor: '#cbd5e1',
   },
   cellNumber: {
     position: 'absolute',
@@ -175,18 +173,29 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
   const N = grid.length;
 
   let holeMinRow = -1, holeMinCol = -1, holeW = 0, holeH = 0;
-  if (state.photo) {
-    const hole = calculateHole(state.gridSize, state.photo.orientation);
+  if (state.hasPhoto) {
+    const hole = calculateHole({
+      gridCols: grid[0]?.length || 0,
+      gridRows: grid.length,
+      hasPhoto: state.hasPhoto,
+      photoOrientation: state.photo?.orientation || 'horizontal',
+      maxAttempts: 50
+    });
     if (hole) {
       holeW = hole.holeW;
       holeH = hole.holeH;
-      // Adjust hole coordinates based on how much the grid was trimmed
-      const offsetR = currentVariant.trimOffset?.minR || 0;
-      const offsetC = currentVariant.trimOffset?.minC || 0;
-      holeMinRow = hole.holeMinRow - offsetR;
-      holeMinCol = hole.holeMinCol - offsetC;
+      holeMinRow = hole.holeMinRow;
+      holeMinCol = hole.holeMinCol;
     }
   }
+
+  const holeMaxRow = holeMinRow !== -1 ? holeMinRow + holeH - 1 : -1;
+  const holeMaxCol = holeMinCol !== -1 ? holeMinCol + holeW - 1 : -1;
+
+  const isInHole = (r: number, c: number) => {
+    if (!state.hasPhoto || holeMinRow === -1) return false;
+    return r >= holeMinRow && r <= holeMaxRow && c >= holeMinCol && c <= holeMaxCol;
+  };
 
   // Ayır clues into across and down
   const acrossClues = currentVariant.placedWords
@@ -197,7 +206,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
     .filter((w) => w.direction === 'down')
     .sort((a, b) => a.number - b.number);
 
-  const CELL_SIZE = Math.min(26, 450 / Math.max(1, grid[0]?.length || 1));
+  const CELL_SIZE = Math.floor(Math.min(26, 450 / Math.max(1, grid[0]?.length || 1)));
 
   return (
     <Document>
@@ -208,7 +217,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
 
         <View style={styles.gridContainer}>
           <View style={styles.grid}>
-            {state.photo && (
+            {state.hasPhoto && state.photo?.url && (
               <View 
                 style={[
                   styles.photoOverlay, 
@@ -227,19 +236,19 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
             {grid.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.row}>
                 {row.map((cell, colIndex) => {
-                  const isTopWhite = rowIndex === 0 || grid[rowIndex - 1][colIndex].isBlack;
-                  const isLeftWhite = colIndex === 0 || grid[rowIndex][colIndex - 1].isBlack;
+                  const inHole = isInHole(rowIndex, colIndex);
+                  const isTopBorderNeeded = rowIndex === 0 || isInHole(rowIndex - 1, colIndex);
+                  const isLeftBorderNeeded = colIndex === 0 || isInHole(rowIndex, colIndex - 1);
 
                   const cellStyles: any[] = [
                     styles.cell,
                     { width: CELL_SIZE, height: CELL_SIZE },
-                    cell.isBlack ? styles.cellBlack : styles.cellWhite,
+                    inHole ? styles.cellBlack : styles.cellWhite,
                   ];
 
-                  if (!cell.isBlack) {
-                    if (isTopWhite) cellStyles.push(styles.cellBorderTop);
-                    if (isLeftWhite) cellStyles.push(styles.cellBorderLeft);
-                    cellStyles.push(styles.cellMarginAdjust);
+                  if (!inHole) {
+                    if (isTopBorderNeeded) cellStyles.push(styles.cellBorderTop);
+                    if (isLeftBorderNeeded) cellStyles.push(styles.cellBorderLeft);
                   }
 
                   let numColorStyle = {};
@@ -258,12 +267,12 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
                       key={`${rowIndex}-${colIndex}`}
                       style={cellStyles}
                     >
-                      {!cell.isBlack && cell.number && (
+                      {!inHole && cell.number && (
                         <Text style={[styles.cellNumber, numColorStyle, { fontSize: Math.max(5, CELL_SIZE * 0.25) }]}>
                           {cell.number}
                         </Text>
                       )}
-                      {!cell.isBlack && showSolution && cell.letter && (
+                      {!inHole && showSolution && cell.letter && (
                         <Text style={[styles.cellLetter, { fontSize: CELL_SIZE * 0.5 }]}>
                           {cell.letter}
                         </Text>

@@ -12,7 +12,7 @@ const words: Word[] = [
 
 console.log("Bulmaca oluşturuluyor...\n");
 
-const variants = generateVariants(words, { gridSize: 15, maxAttempts: 10, seed: 123 }, 1);
+const variants = generateVariants(words, { gridCols: 21, gridRows: 29, maxAttempts: 10, seed: 123, hasPhoto: false }, 1);
 const bestVariant = variants[0];
 
 console.log(`Puan: ${bestVariant.score.toFixed(2)}`);

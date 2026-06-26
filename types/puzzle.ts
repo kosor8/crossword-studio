@@ -38,8 +38,9 @@ export interface Puzzle {
   gridSize: number;
   variants: PuzzleVariant[];
   activeVariantIndex: number;
+  hasPhoto: boolean;
   photo?: {
-    url: string;
+    url?: string;
     orientation: 'horizontal' | 'vertical';
   };
   createdAt?: string;

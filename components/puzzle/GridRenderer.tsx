@@ -30,18 +30,29 @@ export function GridRenderer() {
   let holeMinRow = -1, holeMinCol = -1;
   let holeW = 0, holeH = 0;
   
-  if (state.photo) {
-    const hole = calculateHole(state.gridSize, state.photo.orientation);
+  if (state.hasPhoto) {
+    const hole = calculateHole({
+      gridCols: grid[0]?.length || 0,
+      gridRows: grid.length,
+      hasPhoto: state.hasPhoto,
+      photoOrientation: state.photo?.orientation || 'horizontal',
+      maxAttempts: 50
+    });
     if (hole) {
       holeW = hole.holeW;
       holeH = hole.holeH;
-      // Adjust hole coordinates based on how much the grid was trimmed
-      const offsetR = currentVariant.trimOffset?.minR || 0;
-      const offsetC = currentVariant.trimOffset?.minC || 0;
-      holeMinRow = hole.holeMinRow - offsetR;
-      holeMinCol = hole.holeMinCol - offsetC;
+      holeMinRow = hole.holeMinRow;
+      holeMinCol = hole.holeMinCol;
     }
   }
+
+  const holeMaxRow = holeMinRow !== -1 ? holeMinRow + holeH - 1 : -1;
+  const holeMaxCol = holeMinCol !== -1 ? holeMinCol + holeW - 1 : -1;
+
+  const isInHole = (r: number, c: number) => {
+    if (!state.hasPhoto || holeMinRow === -1) return false;
+    return r >= holeMinRow && r <= holeMaxRow && c >= holeMinCol && c <= holeMaxCol;
+  };
 
   // Split clues into across and down
   const acrossClues = currentVariant.placedWords
@@ -100,9 +111,9 @@ export function GridRenderer() {
                 gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))` 
               }}
             >
-              {state.photo && (
+              {state.hasPhoto && (
                 <div 
-                  className="absolute z-10 p-0.5"
+                  className="absolute z-10 p-0.5 bg-slate-50 flex items-center justify-center"
                   style={{
                     top: `${(holeMinRow / grid.length) * 100}%`,
                     left: `${(holeMinCol / grid[0].length) * 100}%`,
@@ -110,32 +121,34 @@ export function GridRenderer() {
                     height: `${(holeH / grid.length) * 100}%`,
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={state.photo.url} 
-                    alt="Puzzle Center" 
-                    className="w-full h-full object-cover shadow-sm border border-slate-300"
-                  />
+                  {state.photo?.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img 
+                      src={state.photo.url} 
+                      alt="Crossword Photo" 
+                      className="w-full h-full object-cover shadow-sm border border-slate-200"
+                    />
+                  ) : null}
                 </div>
               )}
 
               {grid.map((row, rowIndex) => (
                 row.map((cell, colIndex) => {
-                  const isTopWhite = rowIndex === 0 || grid[rowIndex - 1][colIndex].isBlack;
-                  const isLeftWhite = colIndex === 0 || grid[rowIndex][colIndex - 1].isBlack;
+                  const inHole = isInHole(rowIndex, colIndex);
+                  const isTopBorderNeeded = rowIndex === 0 || isInHole(rowIndex - 1, colIndex);
+                  const isLeftBorderNeeded = colIndex === 0 || isInHole(rowIndex, colIndex - 1);
 
                   return (
                     <div
                       key={`${rowIndex}-${colIndex}`}
                       className={cn(
                         "relative flex items-center justify-center w-full aspect-square transition-all box-border",
-                        // If black, blend into background (no borders). If white, show borders.
-                        cell.isBlack ? "bg-transparent border-transparent" : "bg-white border-b border-r border-slate-800",
-                        // Add top and left borders conditionally to complete the white squares
-                        !cell.isBlack && isTopWhite && "border-t",
-                        !cell.isBlack && isLeftWhite && "border-l",
-                        // Negative margins to prevent double borders
-                        !cell.isBlack && "-mt-[1px] -ml-[1px]"
+                        inHole 
+                          ? "bg-transparent border-transparent pointer-events-none" 
+                          : "bg-white border-b border-r border-slate-300",
+                        !inHole && isTopBorderNeeded && "border-t border-t-slate-300",
+                        !inHole && isLeftBorderNeeded && "border-l border-l-slate-300",
+                        !inHole && "-mt-[1px] -ml-[1px]"
                       )}
                     >
                       {!cell.isBlack && cell.number && (

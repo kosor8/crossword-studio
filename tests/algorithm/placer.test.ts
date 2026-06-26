@@ -5,7 +5,7 @@ import { Word } from '../../types/puzzle';
 describe('Kelime yerleştirme (Placer)', () => {
   it('tek kelimeyi grid ortasına yerleştirir', () => {
     const words: Word[] = [{ id: '1', answer: 'TEST', clue: 'A test word' }];
-    const variants = generateVariants(words, { gridSize: 10, maxAttempts: 10, seed: 1 }, 1);
+    const variants = generateVariants(words, { gridCols: 10, gridRows: 10, maxAttempts: 10, seed: 1, hasPhoto: false }, 1);
     
     expect(variants).toHaveLength(1);
     const variant = variants[0];
@@ -26,7 +26,7 @@ describe('Kelime yerleştirme (Placer)', () => {
       { id: '2', answer: 'WORLD', clue: 'Planet' }
     ];
     // 'HELLO' and 'WORLD' share 'O' and 'L'
-    const variants = generateVariants(words, { gridSize: 10, maxAttempts: 10, seed: 1 }, 1);
+    const variants = generateVariants(words, { gridCols: 10, gridRows: 10, maxAttempts: 10, seed: 1, hasPhoto: false }, 1);
     const variant = variants[0];
     
     expect(variant.placedWords).toHaveLength(2);
@@ -45,7 +45,7 @@ describe('Kelime yerleştirme (Placer)', () => {
     const words: Word[] = [
       { id: '1', answer: 'TOOLONGFORTHISGRID', clue: 'Too long' }
     ];
-    const variants = generateVariants(words, { gridSize: 10, maxAttempts: 10, seed: 1 }, 1);
+    const variants = generateVariants(words, { gridCols: 10, gridRows: 10, maxAttempts: 10, seed: 1, hasPhoto: false }, 1);
     const variant = variants[0];
     
     expect(variant.placedWords).toHaveLength(0);
@@ -57,7 +57,7 @@ describe('Kelime yerleştirme (Placer)', () => {
       { id: '1', answer: 'EXACT', clue: '5 chars' },
       { id: '2', answer: 'TOOLONGWORD', clue: '11 chars, limit 10' }
     ];
-    const variants = generateVariants(words, { gridSize: 10, maxAttempts: 10, seed: 1 }, 1);
+    const variants = generateVariants(words, { gridCols: 10, gridRows: 10, maxAttempts: 10, seed: 1, hasPhoto: false }, 1);
     const variant = variants[0];
     
     expect(variant.placedWords).toHaveLength(1);
@@ -73,7 +73,7 @@ describe('Kelime yerleştirme (Placer)', () => {
       { id: '4', answer: 'ROAD', clue: 'Street' }
     ];
     // Generate 3 variants
-    const variants = generateVariants(words, { gridSize: 15, maxAttempts: 10, seed: 42 }, 3);
+    const variants = generateVariants(words, { gridCols: 15, gridRows: 15, maxAttempts: 10, seed: 42, hasPhoto: false }, 3);
     
     expect(variants).toHaveLength(3);
     

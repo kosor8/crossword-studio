@@ -5,8 +5,9 @@ import { PuzzleProvider, usePuzzle } from '@/hooks/usePuzzle';
 import { WordInput } from '@/components/puzzle/WordInput';
 import { GridRenderer } from '@/components/puzzle/GridRenderer';
 import { VariantSwitcher } from '@/components/puzzle/VariantSwitcher';
+import { PhotoUpload } from '@/components/puzzle/PhotoUpload';
 import { generateVariants } from '@/lib/algorithm/placer';
-import { Play, Loader2 } from 'lucide-react';
+import { Play, Loader2, Image as ImageIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -33,10 +34,12 @@ function StudioContent() {
     setTimeout(() => {
       try {
         const variants = generateVariants(validWords, {
-          gridSize: state.gridSize,
+          gridCols: 21,
+          gridRows: 29,
           maxAttempts: 50,
           seed: Date.now(),
-          photoOrientation: state.photo?.orientation,
+          hasPhoto: state.hasPhoto,
+          photoOrientation: state.photo?.orientation || 'horizontal',
         }, 3);
         
         dispatch({ type: 'SET_VARIANTS', variants });
@@ -72,6 +75,43 @@ function StudioContent() {
           {/* Left Column: Inputs */}
           <div className="lg:col-span-5 space-y-6">
             <WordInput />
+
+            {/* Fotoğraf Alanı Toggle */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "p-2 rounded-lg flex items-center justify-center",
+                  state.hasPhoto ? "bg-brand-100 text-brand-600" : "bg-slate-100 text-slate-500"
+                )}>
+                  <ImageIcon size={20} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-800">Fotoğraf Alanı</h3>
+                  <p className="text-sm text-slate-500">Bulmacanın ortasında fotoğraf için yer aç</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => dispatch({ type: 'TOGGLE_PHOTO' })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500",
+                  state.hasPhoto ? "bg-brand-600" : "bg-slate-200"
+                )}
+                role="switch"
+                aria-checked={state.hasPhoto}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                    state.hasPhoto ? "translate-x-5" : "translate-x-0"
+                  )}
+                />
+              </button>
+            </div>
+
+            {state.hasPhoto && (
+              <PhotoUpload />
+            )}
           </div>
 
           {/* Right Column: Preview & Generation */}
