@@ -106,19 +106,20 @@ export function GridRenderer() {
           {/* Grid Area */}
           <div className="flex justify-center mb-6 w-full max-w-[115mm] mx-auto">
             <div 
-              className="grid relative w-full"
+              className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm"
               style={{ 
-                gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))` 
+                gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))`,
+                gap: '1px'
               }}
             >
               {state.hasPhoto && (
                 <div 
-                  className="absolute z-10 p-0.5 bg-slate-50 flex items-center justify-center"
+                  className="bg-slate-50 flex items-center justify-center overflow-hidden"
                   style={{
-                    top: `${(holeMinRow / grid.length) * 100}%`,
-                    left: `${(holeMinCol / grid[0].length) * 100}%`,
-                    width: `${(holeW / grid[0].length) * 100}%`,
-                    height: `${(holeH / grid.length) * 100}%`,
+                    gridRowStart: holeMinRow + 1,
+                    gridColumnStart: holeMinCol + 1,
+                    gridRowEnd: `span ${holeH}`,
+                    gridColumnEnd: `span ${holeW}`,
                   }}
                 >
                   {state.photo?.url ? (
@@ -126,7 +127,7 @@ export function GridRenderer() {
                     <img 
                       src={state.photo.url} 
                       alt="Crossword Photo" 
-                      className="w-full h-full object-cover shadow-sm border border-slate-200"
+                      className="w-full h-full object-cover shadow-sm"
                     />
                   ) : null}
                 </div>
@@ -134,23 +135,20 @@ export function GridRenderer() {
 
               {grid.map((row, rowIndex) => (
                 row.map((cell, colIndex) => {
-                  const inHole = isInHole(rowIndex, colIndex);
-                  const isTopBorderNeeded = rowIndex === 0 || isInHole(rowIndex - 1, colIndex);
-                  const isLeftBorderNeeded = colIndex === 0 || isInHole(rowIndex, colIndex - 1);
+                  if (isInHole(rowIndex, colIndex)) return null;
 
                   return (
                     <div
                       key={`${rowIndex}-${colIndex}`}
+                      style={{
+                        gridRowStart: rowIndex + 1,
+                        gridColumnStart: colIndex + 1,
+                      }}
                       className={cn(
                         "relative flex items-center justify-center w-full aspect-square transition-all box-border",
-                        inHole 
-                          ? "bg-transparent border-transparent pointer-events-none" 
-                          : cell.isBlack
-                            ? "bg-slate-50 border-b border-r border-slate-300"
-                            : "bg-white border-b border-r border-slate-300",
-                        !inHole && isTopBorderNeeded && "border-t border-t-slate-300",
-                        !inHole && isLeftBorderNeeded && "border-l border-l-slate-300",
-                        !inHole && "-mt-[1px] -ml-[1px]"
+                        cell.isBlack
+                          ? "bg-slate-50"
+                          : "bg-white"
                       )}
                     >
                       {!cell.isBlack && cell.number && (

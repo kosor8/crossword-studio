@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PuzzleProvider, usePuzzle } from '@/hooks/usePuzzle';
 import { WordInput } from '@/components/puzzle/WordInput';
 import { GridRenderer } from '@/components/puzzle/GridRenderer';
-import { VariantSwitcher } from '@/components/puzzle/VariantSwitcher';
+
 import { PhotoUpload } from '@/components/puzzle/PhotoUpload';
 import { generateVariants } from '@/lib/algorithm/placer';
 import { Play, Loader2, Image as ImageIcon } from 'lucide-react';
@@ -143,9 +143,7 @@ function StudioContent() {
               </button>
             </div>
 
-            {state.variants && state.variants.length > 0 && (
-              <VariantSwitcher />
-            )}
+
 
             <GridRenderer />
             
