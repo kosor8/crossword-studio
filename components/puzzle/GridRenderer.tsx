@@ -86,18 +86,17 @@ export function GridRenderer() {
       {/* A4 Paper Mockup Container */}
       <div className="w-full overflow-auto bg-slate-100 p-4 rounded-xl flex justify-center">
         <div 
-          className="bg-white shadow-xl flex flex-col p-8 sm:p-12 relative overflow-hidden"
+          className="bg-white shadow-xl flex flex-col p-8 sm:p-12 relative overflow-hidden aspect-[210/297]"
           style={{ 
-            width: '210mm', 
-            height: '297mm',
+            width: '100%',
+            maxWidth: '210mm',
             transformOrigin: 'top center',
-            maxWidth: '100%',
             boxSizing: 'border-box'
           }}
         >
           {/* Header */}
           <div className="mb-10 text-center">
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight uppercase">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
               {state.title || 'Bulmaca'}
             </h1>
             <div className="w-24 h-1 bg-slate-800 mx-auto mt-4"></div>
@@ -106,15 +105,16 @@ export function GridRenderer() {
           {/* Grid Area */}
           <div className="flex justify-center mb-6 w-full max-w-[115mm] mx-auto">
             <div 
-              className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm"
+              className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm aspect-[21/29]"
               style={{ 
                 gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${grid.length}, minmax(0, 1fr))`,
                 gap: '1px'
               }}
             >
               {state.hasPhoto && (
                 <div 
-                  className="bg-slate-50 flex items-center justify-center overflow-hidden"
+                  className="bg-slate-100 flex items-center justify-center overflow-hidden"
                   style={{
                     gridRowStart: holeMinRow + 1,
                     gridColumnStart: holeMinCol + 1,
@@ -145,9 +145,9 @@ export function GridRenderer() {
                         gridColumnStart: colIndex + 1,
                       }}
                       className={cn(
-                        "relative flex items-center justify-center w-full aspect-square transition-all box-border",
+                        "relative flex items-center justify-center w-full h-full transition-all box-border",
                         cell.isBlack
-                          ? "bg-slate-50"
+                          ? "bg-slate-100"
                           : "bg-white"
                       )}
                     >
