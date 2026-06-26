@@ -59,6 +59,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cellBlack: {
+    backgroundColor: '#f1f5f9',
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  cellHole: {
     backgroundColor: 'transparent',
   },
   cellWhite: {
@@ -206,7 +212,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
     .filter((w) => w.direction === 'down')
     .sort((a, b) => a.number - b.number);
 
-  const CELL_SIZE = Math.floor(Math.min(26, 450 / Math.max(1, grid[0]?.length || 1)));
+  const CELL_SIZE = 15;
 
   return (
     <Document>
@@ -243,7 +249,11 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
                   const cellStyles: any[] = [
                     styles.cell,
                     { width: CELL_SIZE, height: CELL_SIZE },
-                    inHole ? styles.cellBlack : styles.cellWhite,
+                    inHole 
+                      ? styles.cellHole 
+                      : cell.isBlack 
+                        ? styles.cellBlack 
+                        : styles.cellWhite,
                   ];
 
                   if (!inHole) {

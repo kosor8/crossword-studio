@@ -86,13 +86,13 @@ export function GridRenderer() {
       {/* A4 Paper Mockup Container */}
       <div className="w-full overflow-auto bg-slate-100 p-4 rounded-xl flex justify-center">
         <div 
-          className="bg-white shadow-xl flex flex-col p-8 sm:p-12 relative"
+          className="bg-white shadow-xl flex flex-col p-8 sm:p-12 relative overflow-hidden"
           style={{ 
             width: '210mm', 
-            minHeight: '297mm',
-            // Simple transform to fit on smaller screens
+            height: '297mm',
             transformOrigin: 'top center',
             maxWidth: '100%',
+            boxSizing: 'border-box'
           }}
         >
           {/* Header */}
@@ -104,9 +104,9 @@ export function GridRenderer() {
           </div>
 
           {/* Grid Area */}
-          <div className="flex justify-center mb-12">
+          <div className="flex justify-center mb-6 w-full max-w-[115mm] mx-auto">
             <div 
-              className="grid relative"
+              className="grid relative w-full"
               style={{ 
                 gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))` 
               }}
@@ -145,7 +145,9 @@ export function GridRenderer() {
                         "relative flex items-center justify-center w-full aspect-square transition-all box-border",
                         inHole 
                           ? "bg-transparent border-transparent pointer-events-none" 
-                          : "bg-white border-b border-r border-slate-300",
+                          : cell.isBlack
+                            ? "bg-slate-50 border-b border-r border-slate-300"
+                            : "bg-white border-b border-r border-slate-300",
                         !inHole && isTopBorderNeeded && "border-t border-t-slate-300",
                         !inHole && isLeftBorderNeeded && "border-l border-l-slate-300",
                         !inHole && "-mt-[1px] -ml-[1px]"
