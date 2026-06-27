@@ -212,7 +212,10 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
     .filter((w) => w.direction === 'down')
     .sort((a, b) => a.number - b.number);
 
-  const CELL_SIZE = 18;
+  const CELL_SIZE = 20;
+  const totalClues = acrossClues.length + downClues.length;
+  const clueFontSize = totalClues > 25 ? 8 : totalClues > 15 ? 9 : 10;
+  const clueMarginBottom = totalClues > 25 ? 3 : totalClues > 15 ? 4.5 : 6;
 
   return (
     <Document>
@@ -299,9 +302,9 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
           <View style={styles.cluesColumn}>
             <Text style={styles.cluesHeaderBlue}>Soldan Sağa</Text>
             {acrossClues.map((clue) => (
-              <View key={clue.id} style={styles.clueItem} wrap={false}>
-                <Text style={styles.clueNumberBlue}>{clue.number}.</Text>
-                <Text style={styles.clueText}>{clue.clue}</Text>
+              <View key={clue.id} style={[styles.clueItem, { marginBottom: clueMarginBottom }]} wrap={false}>
+                <Text style={[styles.clueNumberBlue, { fontSize: clueFontSize }]}>{clue.number}.</Text>
+                <Text style={[styles.clueText, { fontSize: clueFontSize }]}>{clue.clue}</Text>
               </View>
             ))}
           </View>
@@ -309,9 +312,9 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
           <View style={styles.cluesColumn}>
             <Text style={styles.cluesHeaderRed}>Yukarıdan Aşağı</Text>
             {downClues.map((clue) => (
-              <View key={clue.id} style={styles.clueItem} wrap={false}>
-                <Text style={styles.clueNumberRed}>{clue.number}.</Text>
-                <Text style={styles.clueText}>{clue.clue}</Text>
+              <View key={clue.id} style={[styles.clueItem, { marginBottom: clueMarginBottom }]} wrap={false}>
+                <Text style={[styles.clueNumberRed, { fontSize: clueFontSize }]}>{clue.number}.</Text>
+                <Text style={[styles.clueText, { fontSize: clueFontSize }]}>{clue.clue}</Text>
               </View>
             ))}
           </View>

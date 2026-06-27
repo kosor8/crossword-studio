@@ -18,9 +18,9 @@ interface PlacedPosition {
 
 export function calculateHole(config: PlacerConfig) {
   if (!config.hasPhoto) return null;
-  // Rectangular hole, e.g. 8x6 or 6x8 depending on orientation
-  const baseW = config.photoOrientation === 'vertical' ? 6 : 8;
-  const baseH = config.photoOrientation === 'vertical' ? 8 : 6;
+  // Rectangular hole, e.g. 10x8 or 8x10 depending on orientation
+  const baseW = config.photoOrientation === 'vertical' ? 8 : 10;
+  const baseH = config.photoOrientation === 'vertical' ? 10 : 8;
   
   const holeMinRow = Math.floor((config.gridRows - baseH) / 2);
   const holeMaxRow = holeMinRow + baseH - 1;
@@ -93,21 +93,36 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
   const placed: PlacedWord[] = [];
   const unplaced: Word[] = [];
 
-  for (const word of sorted) {
-    if (word.answer.length > Math.max(config.gridCols, config.gridRows)) {
-      unplaced.push(word);
-      continue;
+  // Multi-pass placement to allow words to connect as new intersection nodes appear
+  let toPlace = [...sorted];
+  let placedAny = true;
+
+  while (toPlace.length > 0 && placedAny) {
+    placedAny = false;
+    const nextToPlace: Word[] = [];
+
+    for (const word of toPlace) {
+      if (word.answer.length > Math.max(config.gridCols, config.gridRows)) {
+        unplaced.push(word);
+        continue;
+      }
+
+      const position = findBestPosition(grid, word, config);
+      if (position) {
+        const placedWord: PlacedWord = { ...word, ...position, number: 0 };
+        placeWord(grid, placedWord);
+        placed.push(placedWord);
+        placedAny = true;
+      } else {
+        nextToPlace.push(word);
+      }
     }
 
-    const position = findBestPosition(grid, word, config);
-    if (position) {
-      const placedWord: PlacedWord = { ...word, ...position, number: 0 };
-      placeWord(grid, placedWord);
-      placed.push(placedWord);
-    } else {
-      unplaced.push(word);
-    }
+    toPlace = nextToPlace;
   }
+
+  // Any remaining words that couldn't be placed
+  unplaced.push(...toPlace);
 
   const finalizedGrid = finalizeGrid(grid, placed);
   const numberedPlaced = numberWords(placed, finalizedGrid);
@@ -120,6 +135,25 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
     score: calculateScore(numberedPlaced, unplaced, finalizedGrid),
     trimOffset: { minR: 0, minC: 0 },
   };
+}
+
+function countIntersections(
+  grid: Grid,
+  word: Word,
+  startRow: number,
+  startCol: number,
+  direction: Direction
+): number {
+  let count = 0;
+  const length = word.answer.length;
+  for (let i = 0; i < length; i++) {
+    const r = direction === 'across' ? startRow : startRow + i;
+    const c = direction === 'across' ? startCol + i : startCol;
+    if (grid[r] && grid[r][c] && grid[r][c].letter) {
+      count++;
+    }
+  }
+  return count;
 }
 
 function findBestPosition(
@@ -143,11 +177,13 @@ function findBestPosition(
         if (letters[i] === cell.letter) {
           // Try Horizontal
           if (canPlace(grid, word, row, col - i, 'across', config)) {
-            candidates.push({ row, col: col - i, direction: 'across', priority: 1 });
+            const intersections = countIntersections(grid, word, row, col - i, 'across');
+            candidates.push({ row, col: col - i, direction: 'across', priority: intersections });
           }
           // Try Vertical
           if (canPlace(grid, word, row - i, col, 'down', config)) {
-            candidates.push({ row: row - i, col, direction: 'down', priority: 1 });
+            const intersections = countIntersections(grid, word, row - i, col, 'down');
+            candidates.push({ row: row - i, col, direction: 'down', priority: intersections });
           }
         }
       }
@@ -174,13 +210,17 @@ function findBestPosition(
     };
   }
 
-  // Pick the best candidate (can be expanded to prioritize multiple intersections)
+  // Pick the best candidate
   if (candidates.length > 0) {
-    // Shuffle candidates of same priority using seed if desired, 
-    // but taking the first one is often fine for backtracking.
-    // We sort descending by priority.
-    candidates.sort((a, b) => b.priority - a.priority);
-    // Pick randomly among top candidates if needed, but for simplicity:
+    // Sort descending by priority (number of intersections)
+    // If priority is the same, use seed to break tie and create variance
+    const currentSeed = config.seed ?? 1;
+    candidates.sort((a, b) => {
+      if (b.priority === a.priority) {
+        return random(currentSeed + a.row + a.col) > 0.5 ? 1 : -1;
+      }
+      return b.priority - a.priority;
+    });
     return candidates[0];
   }
 

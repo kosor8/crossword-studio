@@ -105,7 +105,7 @@ export function GridRenderer() {
           {/* Grid Area */}
           <div 
             className="flex justify-center mb-6 w-full mx-auto"
-            style={{ maxWidth: `${grid[0].length * 6.3}mm` }}
+            style={{ maxWidth: `${grid[0].length * 7.0}mm` }}
           >
             <div 
               className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm"
@@ -158,7 +158,7 @@ export function GridRenderer() {
                       {!cell.isBlack && cell.number && (
                         <span 
                           className={cn(
-                            "absolute top-[0.2px] left-[0.5px] text-[7px] sm:text-[7.5px] leading-none font-bold",
+                            "absolute top-[0.2px] left-[0.5px] text-[7.5px] sm:text-[8px] leading-none font-bold",
                             // Color logic: blue for across, red for down, purple for both
                             cell.numberDirections?.includes('across') && cell.numberDirections?.includes('down') ? "text-purple-600" :
                             cell.numberDirections?.includes('across') ? "text-blue-600" :
@@ -169,7 +169,7 @@ export function GridRenderer() {
                         </span>
                       )}
                       {!cell.isBlack && cell.letter && (
-                        <span className="text-[8.5px] sm:text-[9.5px] font-bold text-slate-800 font-sans uppercase mt-[3.5px]">
+                        <span className="text-[9.5px] sm:text-[10.5px] font-bold text-slate-800 font-sans uppercase mt-[4.5px]">
                           {cell.letter}
                         </span>
                       )}
@@ -181,7 +181,10 @@ export function GridRenderer() {
           </div>
 
           {/* Clues Area */}
-          <div className="grid grid-cols-2 gap-8 text-sm md:text-base mt-auto">
+          <div className={cn(
+            "grid grid-cols-2 gap-8 mt-auto",
+            (acrossClues.length + downClues.length) > 25 ? "text-[10px] leading-tight" : (acrossClues.length + downClues.length) > 15 ? "text-xs leading-snug" : "text-sm md:text-base leading-normal"
+          )}>
             {/* Across Clues */}
             <div>
               <h4 className="font-bold text-blue-700 uppercase tracking-wider mb-4 border-b-2 border-blue-100 pb-2 flex items-center gap-2">
