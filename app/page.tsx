@@ -34,8 +34,8 @@ function StudioContent() {
     setTimeout(() => {
       try {
         const variants = generateVariants(validWords, {
-          gridCols: 21,
-          gridRows: 29,
+          gridCols: 25,
+          gridRows: 20,
           maxAttempts: 50,
           seed: Date.now(),
           hasPhoto: state.hasPhoto,

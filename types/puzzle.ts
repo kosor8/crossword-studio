@@ -18,6 +18,7 @@ export interface GridCell {
   isBlack: boolean;
   number?: number;
   numberDirections?: Direction[]; // Indicates which directions start at this numbered cell
+  directions?: Direction[];       // Indicates which directions pass through this cell
 }
 
 export type Grid = GridCell[][];

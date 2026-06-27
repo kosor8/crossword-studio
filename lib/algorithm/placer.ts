@@ -46,6 +46,7 @@ function createEmptyGrid(cols: number, rows: number): Grid {
     Array.from({ length: cols }, () => ({
       letter: null,
       isBlack: true,
+      directions: [],
     }))
   );
 }
@@ -223,8 +224,14 @@ function canPlace(
     const cell = grid[r][c];
 
     // Conflict check
-    if (cell.letter && cell.letter !== letters[i]) {
-      return false;
+    if (cell.letter) {
+      if (cell.letter !== letters[i]) {
+        return false;
+      }
+      // Two words in the same direction cannot overlap or share cells
+      if (cell.directions && cell.directions.includes(direction)) {
+        return false;
+      }
     }
 
     // Adjacent checks: Words shouldn't run parallel touching each other
@@ -260,12 +267,22 @@ function placeWord(grid: Grid, placedWord: PlacedWord) {
     const c = placedWord.direction === 'across' ? placedWord.col + i : placedWord.col;
     grid[r][c].letter = letters[i];
     grid[r][c].isBlack = false;
+    if (!grid[r][c].directions) {
+      grid[r][c].directions = [];
+    }
+    if (!grid[r][c].directions!.includes(placedWord.direction)) {
+      grid[r][c].directions!.push(placedWord.direction);
+    }
   }
 }
 
 function finalizeGrid(grid: Grid, placed: PlacedWord[]): Grid {
   // We can trim or apply numbers here, but we return a deep copy
-  return grid.map(row => row.map(cell => ({ ...cell })));
+  return grid.map(row => row.map(cell => ({
+    ...cell,
+    directions: cell.directions ? [...cell.directions] : [],
+    numberDirections: cell.numberDirections ? [...cell.numberDirections] : [],
+  })));
 }
 
 function numberWords(placed: PlacedWord[], grid: Grid): PlacedWord[] {

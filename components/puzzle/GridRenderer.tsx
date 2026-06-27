@@ -103,13 +103,17 @@ export function GridRenderer() {
           </div>
 
           {/* Grid Area */}
-          <div className="flex justify-center mb-6 w-full max-w-[115mm] mx-auto">
+          <div 
+            className="flex justify-center mb-6 w-full mx-auto"
+            style={{ maxWidth: `${grid[0].length * 6.3}mm` }}
+          >
             <div 
-              className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm aspect-[21/29]"
+              className="grid relative w-full bg-slate-300 p-[1px] rounded-lg overflow-hidden shadow-sm"
               style={{ 
                 gridTemplateColumns: `repeat(${grid[0].length}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${grid.length}, minmax(0, 1fr))`,
-                gap: '1px'
+                gap: '1px',
+                aspectRatio: `${grid[0].length} / ${grid.length}`
               }}
             >
               {state.hasPhoto && (
@@ -154,7 +158,7 @@ export function GridRenderer() {
                       {!cell.isBlack && cell.number && (
                         <span 
                           className={cn(
-                            "absolute top-0.5 left-1 text-[8px] sm:text-[10px] leading-none font-bold",
+                            "absolute top-[0.2px] left-[0.5px] text-[7px] sm:text-[7.5px] leading-none font-bold",
                             // Color logic: blue for across, red for down, purple for both
                             cell.numberDirections?.includes('across') && cell.numberDirections?.includes('down') ? "text-purple-600" :
                             cell.numberDirections?.includes('across') ? "text-blue-600" :
@@ -165,7 +169,7 @@ export function GridRenderer() {
                         </span>
                       )}
                       {!cell.isBlack && cell.letter && (
-                        <span className="text-sm sm:text-base md:text-lg font-bold text-slate-800 font-sans uppercase">
+                        <span className="text-[8.5px] sm:text-[9.5px] font-bold text-slate-800 font-sans uppercase mt-[3.5px]">
                           {cell.letter}
                         </span>
                       )}

@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
   },
   cellNumber: {
     position: 'absolute',
-    top: 1,
-    left: 2,
+    top: 0,
+    left: 0.5,
     fontSize: 6,
     fontWeight: 'bold',
   },
@@ -212,7 +212,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
     .filter((w) => w.direction === 'down')
     .sort((a, b) => a.number - b.number);
 
-  const CELL_SIZE = 15;
+  const CELL_SIZE = 18;
 
   return (
     <Document>
@@ -278,12 +278,12 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
                       style={cellStyles}
                     >
                       {!inHole && cell.number && (
-                        <Text style={[styles.cellNumber, numColorStyle, { fontSize: Math.max(5, CELL_SIZE * 0.25) }]}>
+                        <Text style={[styles.cellNumber, numColorStyle, { fontSize: Math.max(4.5, CELL_SIZE * 0.25) }]}>
                           {cell.number}
                         </Text>
                       )}
                       {!inHole && showSolution && cell.letter && (
-                        <Text style={[styles.cellLetter, { fontSize: CELL_SIZE * 0.5 }]}>
+                        <Text style={[styles.cellLetter, { fontSize: CELL_SIZE * 0.45 }]}>
                           {cell.letter}
                         </Text>
                       )}
@@ -299,7 +299,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
           <View style={styles.cluesColumn}>
             <Text style={styles.cluesHeaderBlue}>Soldan Sağa</Text>
             {acrossClues.map((clue) => (
-              <View key={clue.id} style={styles.clueItem}>
+              <View key={clue.id} style={styles.clueItem} wrap={false}>
                 <Text style={styles.clueNumberBlue}>{clue.number}.</Text>
                 <Text style={styles.clueText}>{clue.clue}</Text>
               </View>
@@ -309,7 +309,7 @@ const CrosswordDocument = ({ state, showSolution = false }: CrosswordDocumentPro
           <View style={styles.cluesColumn}>
             <Text style={styles.cluesHeaderRed}>Yukarıdan Aşağı</Text>
             {downClues.map((clue) => (
-              <View key={clue.id} style={styles.clueItem}>
+              <View key={clue.id} style={styles.clueItem} wrap={false}>
                 <Text style={styles.clueNumberRed}>{clue.number}.</Text>
                 <Text style={styles.clueText}>{clue.clue}</Text>
               </View>
@@ -328,11 +328,21 @@ export function PdfExporter({ state }: { state: any }) {
     setIsClient(true);
   }, []);
 
+  const document = React.useMemo(() => (
+    <CrosswordDocument state={state as PuzzleState} showSolution={false} />
+  ), [state.title, state.hasPhoto, state.photo, state.variants, state.activeVariantIndex]);
+
+  const documentKey = React.useMemo(() => {
+    const currentVariant = state.variants[state.activeVariantIndex];
+    return `${state.title}-${state.activeVariantIndex}-${state.variants.length}-${currentVariant?.id || ''}-${state.hasPhoto}`;
+  }, [state.title, state.activeVariantIndex, state.variants, state.hasPhoto]);
+
   if (!isClient || !state.variants || state.variants.length === 0) return null;
 
   return (
     <PDFDownloadLink
-      document={<CrosswordDocument state={state as PuzzleState} showSolution={false} />}
+      key={documentKey}
+      document={document}
       fileName={`${state.title ? state.title.replace(/\s+/g, '-').toLowerCase() : 'bulmaca'}.pdf`}
       className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
     >

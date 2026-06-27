@@ -84,4 +84,20 @@ describe('Kelime yerleştirme (Placer)', () => {
     expect(variants[1].id).toBeDefined();
     expect(variants[0].id).not.toBe(variants[1].id);
   });
+
+  it('aynı doğrultudaki iki kelimenin üst üste binmesine izin vermez', () => {
+    const words: Word[] = [
+      { id: '1', answer: 'MASAL', clue: 'Masal 1' },
+      { id: '2', answer: 'MASAL', clue: 'Masal 2' }
+    ];
+    const variants = generateVariants(words, { gridCols: 10, gridRows: 10, maxAttempts: 50, seed: 1, hasPhoto: false }, 1);
+    const variant = variants[0];
+
+    if (variant.placedWords.length === 2) {
+      const w1 = variant.placedWords[0];
+      const w2 = variant.placedWords[1];
+      const samePosAndDir = w1.row === w2.row && w1.col === w2.col && w1.direction === w2.direction;
+      expect(samePosAndDir).toBe(false);
+    }
+  });
 });
