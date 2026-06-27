@@ -14,18 +14,19 @@ export function calculateScore(
   const totalWords = placed.length + unplaced.length;
   if (totalWords === 0) return 0;
 
-  // 1. Placement ratio
-  const placementRatio = placed.length / totalWords;
+  // 1. Placement count (dominant factor)
+  // Multiplying by 10000 ensures that placing more words always outweighs other metrics
+  const placementScore = placed.length * 10000;
 
-  // 2. Intersections
+  // 2. Intersections (secondary tie-breaker)
   const intersections = countIntersections(placed, grid);
-  // Normalize intersections: loosely expect max 1 intersection per placed word on average to score 1.0
-  const normalizedIntersections = placed.length > 0 ? Math.min(1, intersections / placed.length) : 0;
+  const intersectionScore = intersections * 10;
 
-  // 3. Compactness
+  // 3. Compactness (tertiary tie-breaker)
   const compactness = calculateCompactness(placed, grid.length);
+  const compactnessScore = compactness * 100; // compactness is between 0 and 1
 
-  return (placementRatio * 60) + (normalizedIntersections * 25) + (compactness * 15);
+  return placementScore + intersectionScore + compactnessScore;
 }
 
 /**

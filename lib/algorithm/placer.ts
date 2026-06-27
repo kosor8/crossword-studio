@@ -60,69 +60,57 @@ export function generateVariants(
   variantCount: number = 3
 ): PuzzleVariant[] {
   const variants: PuzzleVariant[] = [];
+  const baseSeed = config.seed ?? Date.now();
 
+  // Try to generate at least variantCount variants
   for (let i = 0; i < variantCount; i++) {
     const result = attemptPlacement(words, {
       ...config,
-      seed: (config.seed ?? Date.now()) + i * 1000,
+      seed: baseSeed + i * 1000,
     });
     variants.push(result);
   }
 
-  return variants.sort((a, b) => b.score - a.score);
+  // If the best variant has unplaced words, try more seeds to find a 100% placed solution
+  variants.sort((a, b) => b.score - a.score);
+  let bestVariant = variants[0];
+  const maxAttempts = 15; // Limit to 15 attempts to keep generation time low (completes in <30ms)
+
+  if (bestVariant.unplacedWords.length > 0) {
+    for (let i = variantCount; i < maxAttempts; i++) {
+      const result = attemptPlacement(words, {
+        ...config,
+        seed: baseSeed + i * 1000,
+      });
+      variants.push(result);
+      
+      // Sort and update the best variant
+      variants.sort((a, b) => b.score - a.score);
+      bestVariant = variants[0];
+      
+      // If we found a solution with no unplaced words, stop searching
+      if (bestVariant.unplacedWords.length === 0) {
+        break;
+      }
+    }
+  }
+
+  return variants;
 }
 
 function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
   const grid = createEmptyGrid(config.gridCols, config.gridRows);
   
-  // Create a copy of words and sort them descending by length as a heuristic
-  let sorted = [...words].sort((a, b) => b.answer.length - a.answer.length);
-  
-  // We can shuffle slightly to introduce variance based on seed
+  // Sort descending by length first, but shuffle items of the same length using the seed
   const currentSeed = config.seed ?? 1;
-  if (currentSeed % 2 === 0) {
-    // slight randomization for same lengths to create variants
-    sorted = sorted.sort((a, b) => {
-      if (a.answer.length === b.answer.length) {
-        return random(currentSeed + a.answer.length) > 0.5 ? 1 : -1;
-      }
-      return b.answer.length - a.answer.length;
-    });
-  }
-
-  const placed: PlacedWord[] = [];
-  const unplaced: Word[] = [];
-
-  // Multi-pass placement to allow words to connect as new intersection nodes appear
-  let toPlace = [...sorted];
-  let placedAny = true;
-
-  while (toPlace.length > 0 && placedAny) {
-    placedAny = false;
-    const nextToPlace: Word[] = [];
-
-    for (const word of toPlace) {
-      if (word.answer.length > Math.max(config.gridCols, config.gridRows)) {
-        unplaced.push(word);
-        continue;
-      }
-
-      const position = findBestPosition(grid, word, config);
-      if (position) {
-        const placedWord: PlacedWord = { ...word, ...position, number: 0 };
-        placeWord(grid, placedWord);
-        placed.push(placedWord);
-        placedAny = true;
-      } else {
-        nextToPlace.push(word);
-      }
+  const sorted = [...words].sort((a, b) => {
+    if (a.answer.length === b.answer.length) {
+      return random(currentSeed + a.answer.charCodeAt(0)) > 0.5 ? 1 : -1;
     }
+    return b.answer.length - a.answer.length;
+  });
 
-    toPlace = nextToPlace;
-  }
-
-  // Any remaining words that couldn't be placed
-  unplaced.push(...toPlace);
+  const { placed, unplaced } = solve(sorted, grid, config);
 
   const finalizedGrid = finalizeGrid(grid, placed);
   const numberedPlaced = numberWords(placed, finalizedGrid);
@@ -135,6 +123,22 @@ function attemptPlacement(words: Word[], config: PlacerConfig): PuzzleVariant {
     score: calculateScore(numberedPlaced, unplaced, finalizedGrid),
     trimOffset: { minR: 0, minC: 0 },
   };
+}
+
+function removeWord(grid: Grid, placedWord: PlacedWord) {
+  const letters = placedWord.answer.toUpperCase().split('');
+  for (let i = 0; i < letters.length; i++) {
+    const r = placedWord.direction === 'across' ? placedWord.row : placedWord.row + i;
+    const c = placedWord.direction === 'across' ? placedWord.col + i : placedWord.col;
+    if (grid[r][c].directions) {
+      grid[r][c].directions = grid[r][c].directions!.filter(d => d !== placedWord.direction);
+      if (grid[r][c].directions!.length === 0) {
+        grid[r][c].letter = null;
+        grid[r][c].isBlack = true;
+        delete grid[r][c].directions;
+      }
+    }
+  }
 }
 
 function countIntersections(
@@ -156,75 +160,179 @@ function countIntersections(
   return count;
 }
 
-function findBestPosition(
+function solve(
+  words: Word[],
   grid: Grid,
-  word: Word,
   config: PlacerConfig
-): PlacedPosition | null {
-  const candidates: Array<PlacedPosition & { priority: number }> = [];
-  const letters = word.answer.toUpperCase().split('');
-  let isGridEmpty = true;
+): { placed: PlacedWord[]; unplaced: Word[] } {
+  let bestPlaced: PlacedWord[] = [];
+  let bestGridCopy: Grid = finalizeGrid(grid, []);
 
-  // Search existing letters for intersections
-  for (let row = 0; row < config.gridRows; row++) {
-    for (let col = 0; col < config.gridCols; col++) {
-      const cell = grid[row][col];
-      if (!cell.letter) continue;
-      isGridEmpty = false;
+  let steps = 0;
+  const maxSteps = 1500; // Cap steps to prevent infinite loop or browser hang
+  const startTime = Date.now();
+  const limitMs = 400; // Max 400ms per variant search
 
-      // Find all matching letters in the word
-      for (let i = 0; i < letters.length; i++) {
-        if (letters[i] === cell.letter) {
-          // Try Horizontal
-          if (canPlace(grid, word, row, col - i, 'across', config)) {
-            const intersections = countIntersections(grid, word, row, col - i, 'across');
-            candidates.push({ row, col: col - i, direction: 'across', priority: intersections });
-          }
-          // Try Vertical
-          if (canPlace(grid, word, row - i, col, 'down', config)) {
-            const intersections = countIntersections(grid, word, row - i, col, 'down');
-            candidates.push({ row: row - i, col, direction: 'down', priority: intersections });
+  function search(wordsToPlace: Word[], currentPlaced: PlacedWord[]): boolean {
+    steps++;
+    if (steps > maxSteps || Date.now() - startTime > limitMs) {
+      return false; // timeout or step limit reached
+    }
+
+    // If current placement is better than the best found so far, save it
+    if (currentPlaced.length > bestPlaced.length) {
+      bestPlaced = [...currentPlaced];
+      bestGridCopy = finalizeGrid(grid, currentPlaced);
+      
+      // If we placed all words, we can stop immediately!
+      if (wordsToPlace.length === 0) {
+        return true;
+      }
+    }
+
+    // If all words are placed, we are done!
+    if (wordsToPlace.length === 0) {
+      return true;
+    }
+
+    // Choose the next word to place.
+    // We want to select a word that has at least one intersection with the grid.
+    // If multiple words match, we can prioritize the longest one.
+    let selectedWord: Word | null = null;
+    let selectedIndex = -1;
+
+    // Find all matching letters on the grid
+    const gridLetters = new Set<string>();
+    for (let r = 0; r < config.gridRows; r++) {
+      for (let c = 0; c < config.gridCols; c++) {
+        if (grid[r][c].letter) {
+          gridLetters.add(grid[r][c].letter!);
+        }
+      }
+    }
+
+    if (gridLetters.size === 0) {
+      // Grid is empty, pick the first word (which is the longest due to sorting)
+      selectedWord = wordsToPlace[0];
+      selectedIndex = 0;
+    } else {
+      // Find a word that can intersect with the grid
+      for (let i = 0; i < wordsToPlace.length; i++) {
+        const w = wordsToPlace[i];
+        const wLetters = w.answer.toUpperCase().split('');
+        const hasIntersection = wLetters.some(l => gridLetters.has(l));
+        if (hasIntersection) {
+          selectedWord = w;
+          selectedIndex = i;
+          break; // Since wordsToPlace is sorted descending by length, this is the longest matching word!
+        }
+      }
+    }
+
+    // If no remaining words can intersect with the grid, we cannot place them in this connected component.
+    if (!selectedWord) {
+      return true; 
+    }
+
+    // Find all candidate positions for selectedWord
+    const candidates: Array<PlacedPosition & { priority: number }> = [];
+    const letters = selectedWord.answer.toUpperCase().split('');
+
+    if (gridLetters.size === 0) {
+      // Place first word in center
+      const centerCol = Math.floor(config.gridCols / 2);
+      const centerRow = Math.floor(config.gridRows / 2);
+
+      // Try Across start
+      const startColAcross = centerCol - Math.floor(selectedWord.answer.length / 2);
+      let startRowAcross = centerRow;
+      if (config.photoOrientation) {
+        startRowAcross = 1;
+      }
+      if (canPlace(grid, selectedWord, startRowAcross, startColAcross, 'across', config)) {
+        candidates.push({ row: startRowAcross, col: startColAcross, direction: 'across', priority: 1 });
+      }
+
+      // Try Down start
+      let startRowDown = centerRow - Math.floor(selectedWord.answer.length / 2);
+      let startColDown = centerCol;
+      if (config.photoOrientation) {
+        startRowDown = 1;
+        startColDown = Math.max(1, centerCol);
+      }
+      if (canPlace(grid, selectedWord, startRowDown, startColDown, 'down', config)) {
+        candidates.push({ row: startRowDown, col: startColDown, direction: 'down', priority: 1 });
+      }
+    } else {
+      // Find candidate positions by scanning the grid for matching letters
+      for (let r = 0; r < config.gridRows; r++) {
+        for (let c = 0; c < config.gridCols; c++) {
+          const cell = grid[r][c];
+          if (!cell.letter) continue;
+
+          for (let i = 0; i < letters.length; i++) {
+            if (letters[i] === cell.letter) {
+              // Try Horizontal
+              if (canPlace(grid, selectedWord, r, c - i, 'across', config)) {
+                const intersections = countIntersections(grid, selectedWord, r, c - i, 'across');
+                candidates.push({ row: r, col: c - i, direction: 'across', priority: intersections });
+              }
+              // Try Vertical
+              if (canPlace(grid, selectedWord, r - i, c, 'down', config)) {
+                const intersections = countIntersections(grid, selectedWord, r - i, c, 'down');
+                candidates.push({ row: r - i, col: c, direction: 'down', priority: intersections });
+              }
+            }
           }
         }
       }
     }
-  }
 
-  if (isGridEmpty) {
-    const centerCol = Math.floor(config.gridCols / 2);
-    const centerRow = Math.floor(config.gridRows / 2);
-    
-    if (config.photoOrientation) {
-      // Place first word near the top edge, centered horizontally
-      return {
-        row: 1,
-        col: Math.max(1, centerCol - Math.floor(word.answer.length / 2)),
-        direction: 'across',
-      };
-    }
-    
-    return {
-      row: centerRow,
-      col: centerCol - Math.floor(word.answer.length / 2),
-      direction: 'across',
-    };
-  }
-
-  // Pick the best candidate
-  if (candidates.length > 0) {
-    // Sort descending by priority (number of intersections)
-    // If priority is the same, use seed to break tie and create variance
+    // Sort candidates descending by priority (intersection count)
     const currentSeed = config.seed ?? 1;
     candidates.sort((a, b) => {
       if (b.priority === a.priority) {
-        return random(currentSeed + a.row + a.col) > 0.5 ? 1 : -1;
+        return random(currentSeed + a.row + a.col + steps) > 0.5 ? 1 : -1;
       }
       return b.priority - a.priority;
     });
-    return candidates[0];
+
+    // Try each candidate position
+    for (const cand of candidates) {
+      const placedWord: PlacedWord = { ...selectedWord, ...cand, number: 0 };
+      placeWord(grid, placedWord);
+
+      const nextWords = wordsToPlace.filter((_, idx) => idx !== selectedIndex);
+      const nextPlaced = [...currentPlaced, placedWord];
+
+      if (search(nextWords, nextPlaced)) {
+        return true;
+      }
+
+      // Backtrack
+      removeWord(grid, placedWord);
+    }
+
+    // If we couldn't place this word at any candidate position, we try to skip it!
+    const nextWordsWithoutSelected = wordsToPlace.filter((_, idx) => idx !== selectedIndex);
+    if (search(nextWordsWithoutSelected, currentPlaced)) {
+      return true;
+    }
+
+    return false;
   }
 
-  return null;
+  search(words, []);
+
+  // Restore the best grid state
+  for (let r = 0; r < config.gridRows; r++) {
+    for (let c = 0; c < config.gridCols; c++) {
+      grid[r][c] = { ...bestGridCopy[r][c] };
+    }
+  }
+
+  const unplaced = words.filter(w => !bestPlaced.some(p => p.id === w.id));
+  return { placed: bestPlaced, unplaced };
 }
 
 function canPlace(
